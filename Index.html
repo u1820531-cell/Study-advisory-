@@ -2,47 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudyAdvisor | Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StudyHUD | Dashboard</title>
+    <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #8b5cf6; --bg: #020617; --card: rgba(15, 23, 42, 0.6); --text: #f8fafc; --border: rgba(255, 255, 255, 0.1); }
-        * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
-        body { margin: 0; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; }
+        * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; overflow-x: hidden; }
         .container { width: 100%; max-width: 900px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
-        .glass-card { background: var(--card); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 20px; padding: 20px; }
+        .glass-card { background: var(--card); backdrop-filter: blur(15px); border: 1px solid var(--border); border-radius: 24px; padding: 24px; }
         .subject-block { border-bottom: 1px solid var(--border); padding: 15px 0; }
-        .chapter-item { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 10px; margin-top: 8px; cursor: pointer; border: 1px solid transparent; }
-        .chapter-item.active { border-color: var(--primary); background: rgba(139, 92, 246, 0.1); }
-        .btn-engage { background: var(--primary); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; }
-        input[type="range"] { width: 100%; accent-color: var(--primary); }
-        .stat-val { font-size: 1.5rem; font-weight: 800; display: block; }
+        .chapter-item { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid transparent; }
+        .chapter-item.active { border-color: var(--primary); background: rgba(139, 92, 246, 0.1); box-shadow: 0 0 15px rgba(139,92,246,0.2); }
+        .btn-engage { background: var(--primary); color: white; border: none; width: 100%; padding: 18px; border-radius: 16px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
+        input[type="range"] { width: 100%; accent-color: var(--primary); cursor: pointer; }
+        .stat-val { font-size: 2rem; font-weight: 800; display: block; color: var(--primary); }
+        @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="glass-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="margin:0">PLANNING</h2>
-                <button onclick="addSubject()" style="background:none; border:1px solid var(--border); color:white; cursor:pointer; border-radius:8px; padding:5px 10px;">+ Subject</button>
+                <h2 style="margin:0; letter-spacing:-1px;">STRATEGY</h2>
+                <button onclick="addSubject()" style="background:none; border:1px solid var(--border); color:white; border-radius:8px; padding:8px 12px; cursor:pointer;">+ Subject</button>
             </div>
             <div id="subjectsContainer"></div>
         </div>
         <div>
             <div class="glass-card" style="margin-bottom:20px; text-align:center;">
-                <small style="opacity:0.6">PROD. SCORE</small>
+                <small style="opacity:0.5; letter-spacing:1px;">PROD. SCORE</small>
                 <span class="stat-val" id="statPerf">0%</span>
             </div>
             <div class="glass-card" style="text-align:center;">
-                <small id="missionStatus">READY</small>
-                <h3 id="activeTaskDisplay" style="margin:10px 0">NO TASK</h3>
-                <button class="btn-engage" onclick="startFocus()">ENGAGE</button>
+                <small style="color:var(--primary); font-weight:800;">CURRENT OBJECTIVE</small>
+                <h3 id="activeTaskDisplay" style="margin:12px 0; min-height:1.2em;">NO TASK</h3>
+                <button class="btn-engage" onclick="startFocus()">LAUNCH FOCUS</button>
             </div>
         </div>
     </div>
 
 <script>
-    // Initialize state from Storage
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+
     const state = {
         subjects: JSON.parse(localStorage.getItem("studyData")) || [],
         activeChapter: JSON.parse(localStorage.getItem("activeChapter")) || null,
@@ -51,23 +54,23 @@
 
     function render() {
         const container = document.getElementById("subjectsContainer");
-        container.innerHTML = state.subjects.length ? "" : "<p style='opacity:0.5'>Add a subject to begin.</p>";
+        container.innerHTML = state.subjects.length ? "" : "<p style='opacity:0.4; padding:20px;'>No subjects initialized. Start by adding one above.</p>";
         state.subjects.forEach((sub, sIdx) => {
             const block = document.createElement("div");
             block.className = "subject-block";
-            block.innerHTML = `<div style="display:flex; justify-content:space-between;"><b>${sub.name}</b><button onclick="addChapter(${sIdx})" style="background:none; border:none; color:var(--primary); cursor:pointer;">+ Chapter</button></div>`;
+            block.innerHTML = `<div style="display:flex; justify-content:space-between;"><b>${sub.name.toUpperCase()}</b><button onclick="addChapter(${sIdx})" style="background:none; border:none; color:var(--primary); cursor:pointer; font-weight:800;">+ ADD</button></div>`;
             sub.chapters.forEach((ch, cIdx) => {
                 const isActive = state.activeChapter && state.activeChapter.sIdx === sIdx && state.activeChapter.cIdx === cIdx;
                 const item = document.createElement("div");
                 item.className = `chapter-item ${isActive ? 'active' : ''}`;
                 item.onclick = () => selectChapter(sIdx, cIdx);
-                item.innerHTML = `<span>${ch.name}</span><input type="range" value="${ch.progress}" oninput="updateProg(${sIdx}, ${cIdx}, this.value)">`;
+                item.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${ch.name}</span><small>${ch.progress}%</small></div><input type="range" value="${ch.progress}" oninput="updateProg(${sIdx}, ${cIdx}, this.value)">`;
                 block.appendChild(item);
             });
             container.appendChild(block);
         });
-        document.getElementById("statPerf").textContent = state.productivity.score + "%";
-        if(state.activeChapter) document.getElementById("activeTaskDisplay").textContent = state.activeChapter.name;
+        document.getElementById("statPerf").textContent = (state.productivity.score || 0) + "%";
+        if(state.activeChapter) document.getElementById("activeTaskDisplay").textContent = state.activeChapter.name.toUpperCase();
     }
 
     function selectChapter(sIdx, cIdx) {
@@ -79,26 +82,21 @@
     function updateProg(sIdx, cIdx, val) {
         state.subjects[sIdx].chapters[cIdx].progress = val;
         localStorage.setItem("studyData", JSON.stringify(state.subjects));
+        document.querySelectorAll('.chapter-item b')[cIdx]; // Silently update
     }
 
     function addSubject() { 
-        const n = prompt("Subject name?"); 
-        if(n) { state.subjects.push({name: n, chapters: []}); saveAndRender(); }
+        const n = prompt("Subject name?"); if(n) { state.subjects.push({name: n, chapters: []}); save(); }
     }
 
     function addChapter(i) {
-        const n = prompt("Chapter name?");
-        if(n) { state.subjects[i].chapters.push({name: n, progress: 0}); saveAndRender(); }
+        const n = prompt("Chapter name?"); if(n) { state.subjects[i].chapters.push({name: n, progress: 0}); save(); }
     }
 
-    function saveAndRender() { localStorage.setItem("studyData", JSON.stringify(state.subjects)); render(); }
-
-    function startFocus() {
-        if(!state.activeChapter) return alert("Select a chapter first!");
-        window.location.href = "focus.html";
-    }
+    function save() { localStorage.setItem("studyData", JSON.stringify(state.subjects)); render(); }
+    function startFocus() { if(!state.activeChapter) return alert("Select a chapter!"); window.location.href = "focus.html"; }
 
     render();
 </script>
 </body>
-  </html>
+</html>
