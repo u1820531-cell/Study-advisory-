@@ -1,78 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deep Work | Executing...</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-  <style>
-    :root { --primary: #8b5cf6; --bg: #020617; --text: #f8fafc; }
-    body { margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-    #timerDisplay { font-family: 'JetBrains Mono'; font-size: 8rem; font-weight: 700; margin: 20px 0; text-shadow: 0 0 50px rgba(139, 92, 246, 0.5); }
-    #taskName { letter-spacing: 5px; color: var(--primary); opacity: 0.8; font-size: 1.2rem; }
-    .controls { display: flex; gap: 20px; }
-    button { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 15px 40px; border-radius: 50px; cursor: pointer; font-weight: 800; }
-    .btn-exit { border-color: #ef4444; color: #ef4444; }
-    .btn-primary { background: var(--primary); border: none; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Work | Executing</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #020617; color: white; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; }
+        #timer { font-family: 'JetBrains Mono'; font-size: 8rem; margin: 20px 0; }
+        #task { color: #8b5cf6; letter-spacing: 4px; font-weight: bold; }
+        button { background: #8b5cf6; border: none; color: white; padding: 15px 40px; border-radius: 50px; cursor: pointer; font-weight: 800; font-size: 1rem; }
+        .exit { background: none; border: 1px solid rgba(255,255,255,0.2); margin-top: 20px; }
+    </style>
 </head>
 <body>
-
-  <small id="sessionType">WORK SESSION</small>
-  <div id="taskName">LOADING MISSION...</div>
-  <div id="timerDisplay">25:00</div>
-
-  <div class="controls">
-    <button id="timerBtn" class="btn-primary" onclick="toggleTimer()">ENGAGE</button>
-    <button class="btn-exit" onclick="exitFocus()">EXIT</button>
-  </div>
+    <div id="task">INITIALIZING...</div>
+    <div id="timer">25:00</div>
+    <div style="display:flex; gap:10px;">
+        <button id="mainBtn" onclick="toggleTimer()">START MISSION</button>
+        <button class="exit" onclick="window.location.href='index.html'">ABORT</button>
+    </div>
 
 <script>
-const mission = JSON.parse(localStorage.getItem("activeChapter"));
-const prod = JSON.parse(localStorage.getItem("productivity"));
-let timer = { remaining: 1500, total: 1500, status: 'idle', interval: null };
+    const mission = JSON.parse(localStorage.getItem("activeChapter"));
+    const prod = JSON.parse(localStorage.getItem("productivity")) || { score: 0, sessionsStarted: 0, sessionsCompleted: 0, pauses: 0, focusSecondsToday: 0 };
+    let timeLeft = 1500;
+    let running = false;
+    let interval;
 
-document.getElementById("taskName").textContent = mission.name.toUpperCase();
+    if(mission) document.getElementById("task").textContent = mission.name.toUpperCase();
 
-function toggleTimer() {
-    if (timer.status === 'running') {
-        prod.pauses++;
-        clearInterval(timer.interval);
-        timer.status = 'paused';
-        document.getElementById("timerBtn").textContent = "RESUME";
-    } else {
-        if(timer.status === 'idle') prod.sessionsStarted++;
-        timer.status = 'running';
-        document.getElementById("timerBtn").textContent = "PAUSE";
-        timer.interval = setInterval(() => {
-            timer.remaining--;
-            render();
-            if(timer.remaining <= 0) complete();
-        }, 1000);
+    function toggleTimer() {
+        if(running) {
+            clearInterval(interval);
+            prod.pauses++;
+            running = false;
+            document.getElementById("mainBtn").textContent = "RESUME";
+        } else {
+            if(timeLeft === 1500) prod.sessionsStarted++;
+            running = true;
+            document.getElementById("mainBtn").textContent = "PAUSE";
+            interval = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+                if(timeLeft <= 0) finish();
+            }, 1000);
+        }
+        localStorage.setItem("productivity", JSON.stringify(prod));
     }
-    save();
-}
 
-function render() {
-    const m = String(Math.floor(timer.remaining / 60)).padStart(2, "0");
-    const s = String(timer.remaining % 60).padStart(2, "0");
-    document.getElementById("timerDisplay").textContent = `${m}:${s}`;
-}
+    function updateDisplay() {
+        const m = Math.floor(timeLeft / 60);
+        const s = timeLeft % 60;
+        document.getElementById("timer").textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
 
-function complete() {
-    clearInterval(timer.interval);
-    prod.sessionsCompleted++;
-    prod.focusSecondsToday += timer.total;
-    let streak = Number(localStorage.getItem("streak")) || 0;
-    localStorage.setItem("streak", streak + 1);
-    save();
-    alert("Mission Accomplished. Returning to Command Center.");
-    exitFocus();
-}
+    function finish() {
+        clearInterval(interval);
+        prod.sessionsCompleted++;
+        prod.focusSecondsToday += 1500;
+        
+        // Simple Score Calculation
+        const focusScore = Math.min(prod.focusSecondsToday / 14400, 1) * 60;
+        const discipline = (prod.sessionsCompleted / prod.sessionsStarted) * 40;
+        prod.score = Math.round(focusScore + discipline);
 
-function save() { localStorage.setItem("productivity", JSON.stringify(prod)); }
-function exitFocus() { window.location.href = "index.html"; }
-render();
+        localStorage.setItem("productivity", JSON.stringify(prod));
+        alert("Session Complete!");
+        window.location.href = "index.html";
+    }
 </script>
 </body>
 </html>
