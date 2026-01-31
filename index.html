@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StudyHUD | Dashboard</title>
+    <link rel="manifest" href="manifest.json">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #8b5cf6; --bg: #020617; --card: rgba(15, 23, 42, 0.6); --text: #f8fafc; --border: rgba(255, 255, 255, 0.1); }
+        * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; }
+        .container { width: 100%; max-width: 900px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+        .glass-card { background: var(--card); backdrop-filter: blur(15px); border: 1px solid var(--border); border-radius: 24px; padding: 24px; }
+        .subject-block { border-bottom: 1px solid var(--border); padding: 15px 0; }
+        .chapter-item { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid transparent; }
+        .chapter-item.active { border-color: var(--primary); background: rgba(139, 92, 246, 0.1); }
+        .btn-engage { background: var(--primary); color: white; border: none; width: 100%; padding: 18px; border-radius: 16px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
+        input[type="range"] { width: 100%; accent-color: var(--primary); }
+        .stat-val { font-size: 2rem; font-weight: 800; display: block; color: var(--primary); }
+        .repair-btn { background: none; border: none; color: #ef4444; font-size: 0.7rem; cursor: pointer; margin-top: 20px; opacity: 0.5; }
+        @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="glass-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0">SYLLABUS</h2>
+                <button onclick="addSubject()" style="background:none; border:1px solid var(--border); color:white; border-radius:8px; padding:8px 12px;">+ Subject</button>
+            </div>
+            <div id="subjectsContainer"></div>
+            <button class="repair-btn" onclick="repairApp()">⚠️ REPAIR / RESET DATA</button>
+        </div>
+        <div>
+            <div class="glass-card" style="margin-bottom:20px; text-align:center;">
+                <small style="opacity:0.5;">PROD. SCORE</small>
+                <span class="stat-val" id="statPerf">0%</span>
+            </div>
+            <div class="glass-card" style="text-align:center;">
+                <small style="color:var(--primary); font-weight:800;">CURRENT TASK</small>
+                <h3 id="activeTaskDisplay" style="margin:12px 0;">SELECT A CHAPTER</h3>
+                <button class="btn-engage" onclick="startFocus()">START FOCUS</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const state = {
+        subjects: JSON.parse(localStorage.getItem("studyData")) || [],
+        activeChapter: JSON.parse(localStorage.getItem("activeChapter")) || null,
+        productivity: JSON.parse(localStorage.getItem("productivity")) || { score: 0, sessionsStarted: 0, sessionsCompleted: 0, pauses: 0, focusSecondsToday: 0 }
+    };
+
+    function render() {
+        const container = document.getElementById("subjectsContainer");
+        container.innerHTML = state.subjects.length ? "" : "<p style='opacity:0.4; padding:20px;'>No subjects. Add one to start.</p>";
+        
+        state.subjects.forEach((sub, sIdx) => {
+            const block = document.createElement("div");
+            block.className = "subject-block";
+            block.innerHTML = `<div style="display:flex; justify-content:space-between;"><b>${sub.name.toUpperCase()}</b><button onclick="addChapter(${sIdx})" style="background:none; border:none; color:var(--primary); cursor:pointer;">+ ADD</button></div>`;
+            
+            if(sub.chapters) {
+                sub.chapters.forEach((ch, cIdx) => {
+                    const isActive = state.activeChapter && state.activeChapter.sIdx === sIdx && state.activeChapter.cIdx === cIdx;
+                    const item = document.createElement("div");
+                    item.className = `chapter-item ${isActive ? 'active' : ''}`;
+                    item.onclick = () => selectChapter(sIdx, cIdx);
+                    item.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${ch.name}</span><small>${ch.progress}%</small></div><input type="range" value="${ch.progress}" oninput="updateProg(${sIdx}, ${cIdx}, this.value)">`;
+                    block.appendChild(item);
+                });
+            }
+            container.appendChild(block);
+        });
+
+        const p = state.productivity;
+        const score = p.score || 0;
+        document.getElementById("statPerf").textContent = score + "%";
+        if(state.activeChapter) document.getElementById("activeTaskDisplay").textContent = state.activeChapter.name.toUpperCase();
+    }
+
+    function selectChapter(sIdx, cIdx) {
+        state.activeChapter = { sIdx, cIdx, name: state.subjects[sIdx].chapters[cIdx].name };
+        localStorage.setItem("activeChapter", JSON.stringify(state.activeChapter));
+        render();
+    }
+
+    function updateProg(sIdx, cIdx, val) {
+        state.subjects[sIdx].chapters[cIdx].progress = parseInt(val);
+        localStorage.setItem("studyData", JSON.stringify(state.subjects));
+        render(); // Force redraw to update percentage text
+    }
+
+    function addSubject() { 
+        const n = prompt("Subject name?"); 
+        if(n) { state.subjects.push({name: n, chapters: []}); save(); }
+    }
+
+    function addChapter(i) {
+        const n = prompt("Chapter name?"); 
+        if(n) { state.subjects[i].chapters.push({name: n, progress: 0}); save(); }
+    }
+
+    function save() { 
+        localStorage.setItem("studyData", JSON.stringify(state.subjects)); 
+        render(); 
+    }
+
+    function startFocus() { 
+        if(!state.activeChapter) return alert("Select a chapter!"); 
+        window.location.href = "focus.html"; 
+    }
+
+    function repairApp() {
+        if(confirm("This will clear all study data. Are you sure?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    render();
+</script>
+</body>
+</html>
