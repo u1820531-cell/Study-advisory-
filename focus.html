@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executing Focus</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #020617; color: white; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; }
+        #timer { font-family: 'JetBrains Mono'; font-size: 7rem; margin: 10px 0; }
+        #task { color: #8b5cf6; letter-spacing: 5px; font-weight: 800; font-size: 1.2rem; }
+        .controls { display: flex; gap: 15px; margin-top: 30px; }
+        button { background: #8b5cf6; border: none; color: white; padding: 20px 40px; border-radius: 50px; cursor: pointer; font-weight: 800; font-size: 1rem; }
+        .exit { background: none; border: 1px solid rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body>
+    <div id="task">SELECT TASK</div>
+    <div id="timer">25:00</div>
+    <div class="controls">
+        <button id="mainBtn" onclick="toggleTimer()">START</button>
+        <button class="exit" onclick="window.location.href='index.html'">BACK</button>
+    </div>
+
+<script>
+    const mission = JSON.parse(localStorage.getItem("activeChapter"));
+    let prod = JSON.parse(localStorage.getItem("productivity")) || { score: 0, sessionsStarted: 0, sessionsCompleted: 0, pauses: 0, focusSecondsToday: 0 };
+    
+    let timeLeft = 1500;
+    let running = false;
+    let timerInterval;
+
+    if(mission) document.getElementById("task").textContent = mission.name.toUpperCase();
+
+    function toggleTimer() {
+        if(running) {
+            clearInterval(timerInterval);
+            prod.pauses = (prod.pauses || 0) + 1;
+            running = false;
+            document.getElementById("mainBtn").textContent = "RESUME";
+        } else {
+            if(timeLeft === 1500) prod.sessionsStarted = (prod.sessionsStarted || 0) + 1;
+            running = true;
+            document.getElementById("mainBtn").textContent = "PAUSE";
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+                if(timeLeft <= 0) finish();
+            }, 1000);
+        }
+        localStorage.setItem("productivity", JSON.stringify(prod));
+    }
+
+    function updateDisplay() {
+        const m = Math.floor(timeLeft / 60);
+        const s = timeLeft % 60;
+        document.getElementById("timer").textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function finish() {
+        clearInterval(timerInterval);
+        prod.sessionsCompleted = (prod.sessionsCompleted || 0) + 1;
+        prod.focusSecondsToday = (prod.focusSecondsToday || 0) + 1500;
+        
+        // Calculate Final Score
+        const focusBonus = Math.min(prod.focusSecondsToday / 14400, 1) * 60;
+        const discipline = (prod.sessionsCompleted / (prod.sessionsStarted || 1)) * 40;
+        prod.score = Math.round(focusBonus + discipline);
+
+        localStorage.setItem("productivity", JSON.stringify(prod));
+        alert("Session Complete!");
+        window.location.href = "index.html";
+    }
+</script>
+</body>
+</html>
